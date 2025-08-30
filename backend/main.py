@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
@@ -19,18 +21,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB connection
+
 client = MongoClient("mongodb://localhost:27017/")
 db = client["demo_db"]
 users_collection = db["users"]
+
+
+class User(BaseModel):
+    name: str
+    email: str
+
+class UpdateUser(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
 
 @app.get("/")
 def root():
     return {"message": "MongoDB FastAPI is running 🚀"}
 
 @app.post("/users")
-def create_user(name: str, email: str):
-    new_user = {"name": name, "email": email}
+def create_user(user: User):
+    new_user = {"name": user.name, "email": user.email}
     result = users_collection.insert_one(new_user)
     return {"id": str(result.inserted_id), **new_user}
 
@@ -50,12 +61,12 @@ def get_user(user_id: str):
     return {"id": str(user["_id"]), "name": user["name"], "email": user["email"]}
 
 @app.put("/users/{user_id}")
-def update_user(user_id: str, name: str = None, email: str = None):
+def update_user(user_id: str, user: UpdateUser):
     update_data = {}
-    if name:
-        update_data["name"] = name
-    if email:
-        update_data["email"] = email
+    if user.name:
+        update_data["name"] = user.name
+    if user.email:
+        update_data["email"] = user.email
 
     result = users_collection.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
 
